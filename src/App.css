@@ -1,0 +1,18 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap");
+@import "tailwindcss";
+
+#root {
+  max-width: 1440px;
+  margin: 0 auto;
+  font-family: "Instrument Sans", sans-serif;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+
+
+/* Remove scrollbar from entire page */
+
