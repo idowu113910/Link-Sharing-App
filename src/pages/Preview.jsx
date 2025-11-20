@@ -10,8 +10,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { GoLink } from "react-icons/go";
 import { FaFacebook } from "react-icons/fa6";
 import { LuLink } from "react-icons/lu";
-import PreviewLoader from "../components/PreviewLoader";
-import ShareButton from "../components/ShareButton";
+
 
 const Preview = () => {
   const navigate = useNavigate();
@@ -239,7 +238,7 @@ const Preview = () => {
   return (
     <>
       <div className="md:h-[1024px] h-[848px] bg-gray-50 pb-20">
-        <PreviewLoader fallbackProfile={null} />
+      
         {/* Blue background */}
         <div className="md:bg-[#633CFF] md:h-[357px] md:rounded-bl-[32px] md:rounded-br-[32px] md:overflow-hidden relative">
           <div className="md:bg-[#633CFF] md:h-[357px] md:rounded-bl-[32px] md:rounded-br-[32px] md:overflow-hidden">
@@ -253,31 +252,7 @@ const Preview = () => {
                 {isNavigating ? "Loading..." : "Back to Editor"}
               </button>
               <button
-                onClick={async () => {
-                  // Build the encoded profile data for the preview page
-                  const dataToEncode = {
-                    firstName: savedProfile?.firstName || "",
-                    lastName: savedProfile?.lastName || "",
-                    bio: savedProfile?.bio || "",
-                    avatar: savedProfile?.avatar || "",
-                    links: savedProfile?.links || [],
-                  };
-
-                  const encoded = btoa(JSON.stringify(dataToEncode));
-                  const shareUrl = `${window.location.origin}/preview#${encoded}`;
-
-                  try {
-                    // If browser supports Web Share API
-                    await navigator.share({
-                      title: "My Profile",
-                      text: "Check out my profile!",
-                      url: shareUrl,
-                    });
-                  } catch (err) {
-                    // Fallback: copy to clipboard
-                    navigator.clipboard.writeText(shareUrl);
-                  }
-                }}
+                onClick={handleShareLink}
                 className="w-[159.5px] lg:w-[133px] h-[46px] rounded-[8px] py-[11px] px-[27px] bg-[#633CFF] text-white text-[14px] lg:text-[16px] font-semibold hover:bg-[#532DD1] transition-colors"
               >
                 Share Link
