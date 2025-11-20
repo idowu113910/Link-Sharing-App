@@ -22,6 +22,7 @@ import { GoLink } from "react-icons/go";
 import { FaFacebook } from "react-icons/fa6";
 import { FaArrowRight } from "react-icons/fa";
 import sav from "../assets/succ img.svg";
+import ShareButton from "../components/ShareButton";
 
 const ProfileDetails = () => {
   const [firstName, setFirstName] = useState("");

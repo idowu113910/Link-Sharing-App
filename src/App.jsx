@@ -4,11 +4,13 @@ import Customize from "./pages/Customize";
 import ProfileDetails from "./pages/ProfileDetails";
 import Preview from "./pages/Preview";
 
+
 function App() {
   return (
     <>
       <BrowserRouter>
         <Routes>
+         
           <Route path="/" element={<Customize />} />
           <Route path="/profiledetails" element={<ProfileDetails />} />
           <Route path="/preview" element={<Preview />} />

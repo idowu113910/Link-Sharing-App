@@ -10,6 +10,8 @@ import { FaWhatsapp } from "react-icons/fa";
 import { GoLink } from "react-icons/go";
 import { FaFacebook } from "react-icons/fa6";
 import { LuLink } from "react-icons/lu";
+import PreviewLoader from "../components/PreviewLoader";
+import ShareButton from "../components/ShareButton";
 
 const Preview = () => {
   const navigate = useNavigate();
@@ -92,10 +94,120 @@ const Preview = () => {
       setIsNavigating(false);
     }, 500);
   };
+  // ================================================
 
+  // helper: simple URL normalizer + basic validation
+  const normalizeUrl = (raw) => {
+    if (!raw) return null;
+    let url = raw.trim();
+    // if user omitted protocol, assume https
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+    try {
+      // basic validation
+      const parsed = new URL(url);
+      return parsed.href;
+    } catch {
+      return null;
+    }
+  };
+
+  // helper: copy to clipboard + show feedback
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareMessage("Link copied to clipboard ✓");
+      setTimeout(() => setShareMessage(""), 2000);
+    } catch (err) {
+      console.error("Clipboard error:", err);
+      setShareMessage("Could not copy link");
+      setTimeout(() => setShareMessage(""), 2000);
+    }
+  };
+
+  // Example async function to persist the share link to your backend
+  // Implement this endpoint on your server to accept { shareLink } and
+  // save it to the user's profile. Adjust path/method/auth as needed.
+  const saveShareLinkToServer = async (link) => {
+    try {
+      const res = await fetch("/api/profile/share-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shareLink: link }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updatedProfile = await res.json();
+      // update local savedProfile state
+      setSavedProfile(updatedProfile);
+      return true;
+    } catch (err) {
+      console.error("Failed saving share link:", err);
+      return false;
+    }
+  };
+
+  // Main handler: uses saved profile link if present, otherwise prompts the user
   const handleShareLink = async () => {
-    // Get current page URL or create a shareable profile link
-    const profileUrl = window.location.href;
+    // 1. prefer a permanently saved link on the profile
+    const savedLink = savedProfile?.shareLink;
+    let shareUrl = savedLink ? normalizeUrl(savedLink) : null;
+
+    // 2. if there's no saved link, ask the user to enter one
+    if (!shareUrl) {
+      // NOTE: prompt() is quick. Replace with a modal/input if you prefer better UX.
+      const rawInput = window.prompt(
+        "Enter the link you want to share (e.g. your custom domain or portfolio URL):",
+        ""
+      );
+      if (!rawInput) {
+        // user cancelled — we could fallback to current page or abort.
+        // You said you want Vercel link available for others; so abort.
+        setShareMessage("Share cancelled");
+        setTimeout(() => setShareMessage(""), 1500);
+        return;
+      }
+
+      const normalized = normalizeUrl(rawInput);
+      if (!normalized) {
+        setShareMessage("Invalid link — please include a valid URL.");
+        setTimeout(() => setShareMessage(""), 2000);
+        return;
+      }
+
+      // Ask user if they'd like to save it permanently on their profile
+      const save = window.confirm(
+        "Save this as your permanent share link? (OK = save, Cancel = share once without saving)"
+      );
+
+      if (save) {
+        const ok = await saveShareLinkToServer(normalized);
+        if (!ok) {
+          // If saving failed, still ask whether to continue with a one-time share
+          const cont = window.confirm(
+            "Could not save link. Continue to share this link just once?"
+          );
+          if (!cont) {
+            setShareMessage("Share cancelled");
+            setTimeout(() => setShareMessage(""), 1500);
+            return;
+          }
+        } else {
+          // update shareUrl to the saved value
+          shareUrl = normalized;
+        }
+      } else {
+        // user chose one-time share
+        shareUrl = normalized;
+      }
+    }
+
+    // final guard
+    if (!shareUrl) {
+      setShareMessage("No link to share");
+      setTimeout(() => setShareMessage(""), 1500);
+      return;
+    }
+
+    // 3. Use Web Share API if available, otherwise copy to clipboard
     const profileName = `${savedProfile?.firstName || ""} ${
       savedProfile?.lastName || ""
     }`.trim();
@@ -104,46 +216,30 @@ const Preview = () => {
       profileName ? profileName + "'s" : "my"
     } profile links!`;
 
-    // Check if Web Share API is supported
     if (navigator.share) {
       try {
         await navigator.share({
           title: shareTitle,
           text: shareText,
-          url: profileUrl,
+          url: shareUrl,
         });
         setShareMessage("Shared successfully! ✓");
         setTimeout(() => setShareMessage(""), 2000);
       } catch (err) {
-        // User cancelled or error occurred
-        if (err.name !== "AbortError") {
-          console.error("Error sharing:", err);
-          // Fallback: copy to clipboard
-          copyToClipboard(profileUrl);
-        }
+        // user cancelled or another error — fallback to copying
+        console.error("Share failed:", err);
+        await copyToClipboard(shareUrl);
       }
     } else {
-      // Fallback for browsers that don't support Web Share API (mainly desktop)
-      copyToClipboard(profileUrl);
-    }
-  };
-
-  // Fallback: Copy link to clipboard
-  const copyToClipboard = async (url) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      setShareMessage("Link copied to clipboard! ✓");
-      setTimeout(() => setShareMessage(""), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-      setShareMessage("Failed to share link");
-      setTimeout(() => setShareMessage(""), 2000);
+      // fallback for desktop
+      await copyToClipboard(shareUrl);
     }
   };
 
   return (
     <>
       <div className="md:h-[1024px] h-[848px] bg-gray-50 pb-20">
+        <PreviewLoader fallbackProfile={null} />
         {/* Blue background */}
         <div className="md:bg-[#633CFF] md:h-[357px] md:rounded-bl-[32px] md:rounded-br-[32px] md:overflow-hidden relative">
           <div className="md:bg-[#633CFF] md:h-[357px] md:rounded-bl-[32px] md:rounded-br-[32px] md:overflow-hidden">
@@ -157,7 +253,31 @@ const Preview = () => {
                 {isNavigating ? "Loading..." : "Back to Editor"}
               </button>
               <button
-                onClick={handleShareLink}
+                onClick={async () => {
+                  // Build the encoded profile data for the preview page
+                  const dataToEncode = {
+                    firstName: savedProfile?.firstName || "",
+                    lastName: savedProfile?.lastName || "",
+                    bio: savedProfile?.bio || "",
+                    avatar: savedProfile?.avatar || "",
+                    links: savedProfile?.links || [],
+                  };
+
+                  const encoded = btoa(JSON.stringify(dataToEncode));
+                  const shareUrl = `${window.location.origin}/preview#${encoded}`;
+
+                  try {
+                    // If browser supports Web Share API
+                    await navigator.share({
+                      title: "My Profile",
+                      text: "Check out my profile!",
+                      url: shareUrl,
+                    });
+                  } catch (err) {
+                    // Fallback: copy to clipboard
+                    navigator.clipboard.writeText(shareUrl);
+                  }
+                }}
                 className="w-[159.5px] lg:w-[133px] h-[46px] rounded-[8px] py-[11px] px-[27px] bg-[#633CFF] text-white text-[14px] lg:text-[16px] font-semibold hover:bg-[#532DD1] transition-colors"
               >
                 Share Link
